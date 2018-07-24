@@ -2,6 +2,7 @@ import java.util.Scanner
 
 import cats._
 import cats.implicits._
+import cats.data.NonEmptyList
 
 import scala.util.Try
 
@@ -16,21 +17,13 @@ object Main extends App {
   def getHand(deck: Deck): Option[(Hand, Deck)] =
     for (hand <- Hand.toHand(deck.take(5))) yield (hand, deck.drop(5))
 
-  // TODO: Scannerが中に入ってるのどうにかしたい
-  // TODO: NonEmptyListを使う
   def getDiscardList(hand: Hand): Option[DiscardList] = {
     def selectByIndexes[A](any: List[A], inputs: List[Int]): Option[List[A]] = {
-      val discardList = Option(inputs.flatMap { i =>
+      val discardList: Option[NonEmptyList[A]] = inputs.flatMap { i =>
         any.get(i - 1)
-      })
+      }.toNel
 
-      for (res <- discardList) yield {
-        if (res.nonEmpty) {
-          return Some(res)
-        } else {
-          return None
-        }
-      }
+      for (res <- discardList) yield res.toList
     }
 
     // 入力された整数値を分割してListにぶちこむ(1〜5)
@@ -39,8 +32,11 @@ object Main extends App {
     val input: Option[List[Int]] =
       Try(Some(scanner.next.split("").map(_.toInt).toList))
         .getOrElse(None)
-    for (intList <- input;
-         res <- selectByIndexes(hand, intList)) yield res
+
+    for {
+      intList <- input
+      res <- selectByIndexes(hand, intList)
+    } yield res
   }
 
   def drawHand(deck: Deck, discardList: DiscardList, hand: Hand): Option[(Hand, Deck)] = {
@@ -73,20 +69,20 @@ object Main extends App {
     Order.compare(myRes, enemyRes)
 
   def printResult(mHand: Hand,
-                  eHand: Hand,
-                  mRes: (PokerHand, Card),
-                  eRes: (PokerHand, Card)): Unit = {
+    eHand: Hand,
+    mRes: (PokerHand, Card),
+    eRes: (PokerHand, Card)): Unit = {
 
-    println(" ***** 結果発表!! ***** ")
-    printHand(List.empty, mHand, Player)
-    printHand(List.empty, eHand, Enemy)
-    println(s"""***** あなたの手札は${mRes._1}で、最強カードは、${mRes._2.cardNum}でした *****""")
-    println(s"""***** あいての手札は${eRes._1}で、最強カードは、${eRes._2.cardNum}でした *****""")
-    judgeVictory(mRes, eRes) match {
-      case 0  => println("引き分けです")
-      case 1  => println("あなたの勝ちです")
-      case -1 => println("あなたの負けです")
-    }
+      println(" ***** 結果発表!! ***** ")
+      printHand(List.empty, mHand, Player)
+      printHand(List.empty, eHand, Enemy)
+      println(s"""***** あなたの手札は${mRes._1}で、最強カードは、${mRes._2.cardNum}でした *****""")
+      println(s"""***** あいての手札は${eRes._1}で、最強カードは、${eRes._2.cardNum}でした *****""")
+      judgeVictory(mRes, eRes) match {
+        case 0  => println("引き分けです")
+        case 1  => println("あなたの勝ちです")
+        case -1 => println("あなたの負けです")
+      }
   }
 
   def ynQuestion[A](str: String, yes: => A, no: => A): A = {

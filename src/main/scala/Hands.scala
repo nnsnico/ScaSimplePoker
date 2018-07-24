@@ -1,5 +1,6 @@
 import cats._
 import cats.implicits._
+import cats.data.NonEmptyList
 
 import Hand._
 import Main.DiscardList
@@ -63,7 +64,6 @@ case class Hand(fromHand: List[Card]) {
   }
 }
 
-// TODO: cats.NonEmptyListを使用して空のリストをOptionalに判別する条件分岐を削除する
 object Hand {
   implicit def convertHandToListCard(hand: Hand): List[Card] = hand.fromHand
 
@@ -96,18 +96,16 @@ object Hand {
     else None
 
   private def nOfKindDiscards(hand: Hand): DiscardList = {
-    def allNOfKinds(hand: Hand): List[Card] = {
-      val kinds: List[Option[List[List[Card]]]] =
-        List(nOfKindHint(2)(hand), nOfKindHint(3)(hand), nOfKindHint(4)(hand))
-      kinds.flatten.flatten.flatten
+    def allNOfKinds(h: Hand): List[Card] = {
+      val kinds: List[Option[NonEmptyList[List[Card]]]] =
+        List(nOfKindHint(2)(h), nOfKindHint(3)(h), nOfKindHint(4)(h))
+      kinds.flatten.flatMap(_.toList).flatten
     }
 
-    hand.filter { card =>
-      !allNOfKinds(hand).contains(card)
-    }
+    hand.filterNot(allNOfKinds(hand).contains(_))
   }
 
-  private def nOfKindHint(n: Int)(hand: Hand): Option[List[List[Card]]] = {
+  private def nOfKindHint(n: Int)(hand: Hand): Option[NonEmptyList[List[Card]]] = {
     def groupBy(eq: (Card, Card) => Boolean)(list: List[Card]): List[List[Card]] = {
       list match {
         case head :: tail =>
@@ -117,13 +115,13 @@ object Hand {
       }
     }
 
-    val cards = groupBy { (x, y) =>
+    val cards: List[List[Card]] = groupBy { (x, y) =>
       x.num == y.num
     }(hand).filter { cards =>
       cards.length == n
     }
 
-    if (cards.isEmpty) None else Some(cards)
+    cards.toNel
   }
 
   private def straightHint(hand: Hand): Option[Card] = {
@@ -145,25 +143,20 @@ object Hand {
   }
 
   def onePair(hand: Hand): Option[(PokerHand, Card)] = {
-    for (cs <- nOfKindHint(2)(hand)) yield {
-      if (cs.isEmpty) return None else return Some(OnePair, cs.flatten.last)
-    }
+    for (cs <- nOfKindHint(2)(hand)) yield (OnePair, cs.toList.flatten.last)
   }
 
   def twoPair(hand: Hand): Option[(PokerHand, Card)] = {
     for (cs <- nOfKindHint(2)(hand)) yield {
       cs.length match {
-        case 2 => return Some(TwoPair, cs.flatten.last)
+        case 2 => return Some(TwoPair, cs.toList.flatten.last)
         case _ => return None
       }
     }
   }
 
   def threeOfAKind(hand: Hand): Option[(PokerHand, Card)] = {
-    for (cs <- nOfKindHint(3)(hand)) yield {
-      if (cs.isEmpty) return None
-      else return Some(ThreeOfAKind, cs.flatten.last)
-    }
+    for (cs <- nOfKindHint(3)(hand)) yield (ThreeOfAKind, cs.toList.flatten.last)
   }
 
   def straight(hand: Hand): Option[(PokerHand, Card)] = {
@@ -176,15 +169,12 @@ object Hand {
 
   def fullHouse(hand: Hand): Option[(PokerHand, Card)] = {
     for (cs <- nOfKindHint(3)(hand) if nOfKindHint(2)(hand).isDefined) yield {
-      (FullHouse, cs.flatten.last)
+      (FullHouse, cs.toList.flatten.last)
     }
   }
 
   def fourOfAKind(hand: Hand): Option[(PokerHand, Card)] = {
-    for (cs <- nOfKindHint(4)(hand)) yield {
-      if (cs.isEmpty) return None
-      else return Some(FourOfAKind, cs.flatten.max)
-    }
+    for (cs <- nOfKindHint(4)(hand)) yield (FourOfAKind, cs.toList.flatten.max)
   }
 
   def straightFlush(hand: Hand): Option[(PokerHand, Card)] = {
