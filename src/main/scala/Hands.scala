@@ -7,11 +7,13 @@ import PokerHand._
 
 import scala.language.implicitConversions
 
-sealed abstract class PokerHand(val index: Int)
+sealed abstract class PokerHand(strength: Int) {
+  val toStrength: Int = strength
+}
 
 object PokerHand {
 
-  implicit val ord: Order[PokerHand] = Order.by((p: PokerHand) => p.index)
+  implicit val ord: Order[PokerHand] = Order.by((p: PokerHand) => p.toStrength)
 
   case object HighCards extends PokerHand(0)
 
