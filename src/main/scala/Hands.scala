@@ -98,15 +98,14 @@ object Hand {
       none
 
   private def nOfKindDiscards(hand: Hand): DiscardList = {
-    def allNOfKinds(h: Hand): List[Hand] = {
+    def allNOfKinds(h: Hand): List[Card] = {
       val kinds: List[Option[NonEmptyList[List[Card]]]] =
         List(nOfKindHint(2)(h), nOfKindHint(3)(h), nOfKindHint(4)(h))
 
-      for {
-        kinds <- OptionT(kinds).map(_.toList.flatten).value
-        cards <- kinds
-        card  <- cards
-      } yield card
+      (for {
+        cards <- OptionT(kinds).map(_.toList.flatten) // OptionT[List, List[Card]]
+        card  <- OptionT.liftF(cards)                 // OptionT[List, Card]
+      } yield card).value.flatten // List[Option[Card]] → List[Card]
     }
 
     hand.filterNot(allNOfKinds(hand).contains)
