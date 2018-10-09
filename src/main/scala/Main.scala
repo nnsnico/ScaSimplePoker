@@ -82,9 +82,8 @@ object Main extends App {
     println(s"""***** ${Enemy.showName}の手札は${eRes._1}で、最強カードは、${eRes._2.cardNum}でした *****""")
 
     judgeVictory(mRes, eRes) match {
-      case 0 => println("引き分けです")
-      case 1 =>
-        println(s"${Player.showName}の勝ちです")
+      case 0  => println("引き分けです")
+      case 1  => println(s"${Player.showName}の勝ちです")
       case -1 => println(s"${Enemy.showName}の負けです")
     }
   }
