@@ -2,7 +2,7 @@ name := "ScaSimplePoker"
 
 version := "0.1"
 
-lazy val catsVersion = "1.1.0"
+lazy val catsVersion = "1.4.0"
 
 scalaVersion := "2.12.6"
 

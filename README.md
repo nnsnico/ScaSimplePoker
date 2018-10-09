@@ -5,9 +5,9 @@ Scalaとcatsでつくるシンプルなポーカー
 
 - Scala 2.12.6
 
-- sbt 1.1.6
+- sbt 1.2.3
 
-- cats-core 1.1.0
+- cats-core 1.4.0
 
 - scalafmt 1.5.1
 

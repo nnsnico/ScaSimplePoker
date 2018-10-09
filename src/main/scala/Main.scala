@@ -2,6 +2,7 @@ import java.util.Scanner
 
 import cats._
 import cats.implicits._
+import cats.data.NonEmptyList
 
 import scala.util.Try
 
@@ -11,26 +12,18 @@ import Card._
 object Main extends App {
 
   type DiscardList = List[Card]
-  type Deck = List[Card]
+  type Deck        = List[Card]
 
   def getHand(deck: Deck): Option[(Hand, Deck)] =
     for (hand <- Hand.toHand(deck.take(5))) yield (hand, deck.drop(5))
 
-  // TODO: Scannerが中に入ってるのどうにかしたい
-  // TODO: NonEmptyListを使う
   def getDiscardList(hand: Hand): Option[DiscardList] = {
     def selectByIndexes[A](any: List[A], inputs: List[Int]): Option[List[A]] = {
-      val discardList = Option(inputs.flatMap { i =>
+      val discardList: Option[NonEmptyList[A]] = inputs.flatMap { i =>
         any.get(i - 1)
-      })
+      }.toNel
 
-      for (res <- discardList) yield {
-        if (res.nonEmpty) {
-          return Some(res)
-        } else {
-          return None
-        }
-      }
+      for (res <- discardList) yield res.toList
     }
 
     // 入力された整数値を分割してListにぶちこむ(1〜5)
@@ -39,8 +32,11 @@ object Main extends App {
     val input: Option[List[Int]] =
       Try(Some(scanner.next.split("").map(_.toInt).toList))
         .getOrElse(None)
-    for (intList <- input;
-         res <- selectByIndexes(hand, intList)) yield res
+
+    for {
+      intList <- input
+      res     <- selectByIndexes(hand, intList)
+    } yield res
   }
 
   def drawHand(deck: Deck, discardList: DiscardList, hand: Hand): Option[(Hand, Deck)] = {
@@ -66,33 +62,36 @@ object Main extends App {
   }
 
   def printHand(discards: DiscardList, hand: Hand, player: Players): Unit =
-    println(s"""-- ${showPlayerName(player)}の手札 : ${showChangeHand(discards, hand)}""")
+    println(s"""-- ${player.showName}の手札 : ${showChangeHand(discards, hand)}""")
 
   // left < right => -1, left > right => 1, left == right => 0
   def judgeVictory(myRes: (PokerHand, Card), enemyRes: (PokerHand, Card)): Int =
     Order.compare(myRes, enemyRes)
 
-  def printResult(mHand: Hand,
-                  eHand: Hand,
-                  mRes: (PokerHand, Card),
-                  eRes: (PokerHand, Card)): Unit = {
-
+  def printResult(
+      mHand: Hand,
+      eHand: Hand,
+      mRes: (PokerHand, Card),
+      eRes: (PokerHand, Card)
+  ): Unit = {
     println(" ***** 結果発表!! ***** ")
     printHand(List.empty, mHand, Player)
     printHand(List.empty, eHand, Enemy)
-    println(s"""***** あなたの手札は${mRes._1}で、最強カードは、${mRes._2.cardNum}でした *****""")
-    println(s"""***** あいての手札は${eRes._1}で、最強カードは、${eRes._2.cardNum}でした *****""")
+
+    println(s"""***** ${Player.showName}の手札は${mRes._1}で、最強カードは、${mRes._2.cardNum}でした *****""")
+    println(s"""***** ${Enemy.showName}の手札は${eRes._1}で、最強カードは、${eRes._2.cardNum}でした *****""")
+
     judgeVictory(mRes, eRes) match {
       case 0  => println("引き分けです")
-      case 1  => println("あなたの勝ちです")
-      case -1 => println("あなたの負けです")
+      case 1  => println(s"${Player.showName}の勝ちです")
+      case -1 => println(s"${Enemy.showName}の負けです")
     }
   }
 
   def ynQuestion[A](str: String, yes: => A, no: => A): A = {
     print(s"""$str (y/n) """)
     val scanner = new Scanner(System.in)
-    val input = scanner.nextLine
+    val input   = scanner.nextLine
 
     input match {
       case "y" => yes
@@ -128,14 +127,14 @@ object Main extends App {
           inputDisuse(hand)
         case Some(disuses) =>
           printHand(disuses, hand, Player)
-          ynQuestion("-- あなた : これでいい？", disuses, inputDisuse(hand))
+          ynQuestion(s"-- ${Player.showName} : これでいい？", disuses, inputDisuse(hand))
       }
     }
 
     def aiDisuse(hand: Hand): DiscardList = {
       val res = Hand.aiSelectDiscards(hand)
       printHand(res, hand, Enemy)
-      println("-- あいて:これでいいよ!")
+      println(s"-- ${Enemy.showName}:これでいいよ!")
       res
     }
 
@@ -155,7 +154,7 @@ object Main extends App {
 
   import scala.util.Random.shuffle
 
-  val deck = shuffle(Card.allCards)
+  val deck: Deck = shuffle(Card.allCards)
   getHand(deck) match {
     case None      => new Exception("予期せぬエラー: getHand in simpleGame")
     case Some(res) => matchPoker(res)
@@ -163,10 +162,10 @@ object Main extends App {
 
   // いまここで実行されるのはらめえ
   lazy val main: Unit = Main.main(Array.empty)
-  lazy val bye: Unit = println("-- またねノシノシ")
+  lazy val bye: Unit  = println("-- またねノシノシ")
 
   print("-- もっかいやる？ (y/n) ")
-  val input = new Scanner(System.in).nextLine
+  val input: String = new Scanner(System.in).nextLine
 
   input match {
     case "y" => main
